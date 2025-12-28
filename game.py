@@ -1,21 +1,22 @@
 from collections import deque
 import pgzero
 import pygame
-import pgzero.screen
-import pgzero.keyboard
 from pgzero.clock import clock
 import random
+import pgzrun
 screen : pgzero.screen.Screen
 keyboard : pgzero.keyboard.Keyboard
 
 WIDTH = 800
 HEIGHT = 600
 VGAP = 150
-toprecs = deque()
-bottomrecs = deque()
+toprecs = None
+bottomrecs = None
+shiprect = None
 speed = 3
 moveby = 2
 rock_color = 'red'
+show_flip = False
 
 def draw():
     global speed
@@ -28,6 +29,10 @@ def draw():
     if shiprect.collidelist(toprecs) != -1 or shiprect.collidelist(bottomrecs) != -1:
         screen.draw.text("GAME OVER", center=(WIDTH/2, HEIGHT/2), fontsize=64, color='white')
         speed = 0
+        clock.unschedule(hide_flip)
+        clock.unschedule(flip)
+    elif show_flip:
+        screen.draw.text("FLIP!", center=(WIDTH/2, HEIGHT/2), fontsize=64, color='yellow')
 
 def update():
     fill()
@@ -80,15 +85,36 @@ def trim_offscreen():
 def flip():
     if speed == 0:
         return
-    global rock_color
-    global moveby
+    global rock_color, moveby, show_flip
     rock_color = 'green' if rock_color == 'red' else 'red'
     moveby = -moveby
+    show_flip = True
+    clock.schedule_unique(hide_flip, 1.0)
     next_flip = random.random() * 8 + 4
-    clock.schedule_interval(flip, next_flip)
+    clock.schedule_unique(flip, next_flip)
 
-add_slice(int(HEIGHT/3), 0, WIDTH)
-shipH = toprecs[0].bottom + int(VGAP/2)
-shiprect = pygame.Rect(0, 0, 20, 20)
-shiprect.center = (WIDTH/4, shipH)
-clock.schedule_interval(flip, 10.0)
+def hide_flip():
+    global show_flip
+    show_flip = False
+
+def setup():
+    global shiprect, toprecs, bottomrecs, speed, moveby, rock_color, show_flip
+    toprecs = deque()
+    bottomrecs = deque()
+    speed = 3
+    moveby = 2
+    rock_color = 'red'
+    show_flip = False
+    add_slice(int(HEIGHT/3), 0, WIDTH)
+    shipH = toprecs[0].bottom + int(VGAP/2)
+    shiprect = pygame.Rect(0, 0, 20, 20)
+    shiprect.center = (WIDTH/4, shipH)
+    clock.schedule_interval(flip, 10.0)
+
+def on_mouse_down():
+    if speed != 0:
+        return
+    setup()
+
+setup()
+pgzrun.go()
