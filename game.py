@@ -7,112 +7,131 @@ import pgzrun
 screen : pgzero.screen.Screen
 keyboard : pgzero.keyboard.Keyboard
 
+# constants
 WIDTH = 800
 HEIGHT = 600
-VGAP = 150
-toprecs = None
-bottomrecs = None
-shiprect = None
+CAVEHEIGHT = 150
+INFO_HEIGHT = 40
+
+# global variables
+top_rocks = None
+bottom_rocks = None
+ship_box = None
 speed = 3
-moveby = 2
+move_by = 2
 rock_color = 'red'
-show_flip = False
+show_fliptext = False
+score = 0
+crashed = False
+
 
 def draw():
-    global speed
     screen.clear()
-    for toprec in toprecs:
-        screen.draw.filled_rect(toprec, rock_color)
-    for bottomrec in bottomrecs:
-        screen.draw.filled_rect(bottomrec, rock_color)
-    screen.draw.filled_rect(shiprect, 'blue')
-    if shiprect.collidelist(toprecs) != -1 or shiprect.collidelist(bottomrecs) != -1:
+    # draw objects
+    for rock in top_rocks:
+        screen.draw.filled_rect(rock, rock_color)
+    for rock in bottom_rocks:
+        screen.draw.filled_rect(rock, rock_color)
+    screen.draw.filled_rect(ship_box, 'blue')
+    # draw text
+    screen.draw.text(f"Score: {score}", topleft=(0, 0), fontsize=INFO_HEIGHT, color='white')
+    if crashed:
         screen.draw.text("GAME OVER", center=(WIDTH/2, HEIGHT/2), fontsize=64, color='white')
-        speed = 0
-        clock.unschedule(hide_flip)
-        clock.unschedule(flip)
-    elif show_flip:
+    elif show_fliptext:
         screen.draw.text("FLIP!", center=(WIDTH/2, HEIGHT/2), fontsize=64, color='yellow')
 
 def update():
-    fill()
-    trim_offscreen()
-    for rect in toprecs:
+    global crashed, speed, score
+    # add new rocks, move them all and remove offscreen ones
+    add_more_rocks()
+    for rect in top_rocks:
         rect.move_ip(-speed, 0)
-    for rect in bottomrecs:
+    for rect in bottom_rocks:
         rect.move_ip(-speed, 0)
+    remove_old_rocks()
+    # move ship if need be
     if keyboard.up:
-        shiprect.move_ip(0, -moveby)
+        ship_box.move_ip(0, -move_by)
     if keyboard.down:
-        shiprect.move_ip(0, moveby)
+        ship_box.move_ip(0, move_by)
     if keyboard.right:
-        shiprect.move_ip(moveby, 0)
+        ship_box.move_ip(move_by, 0)
     if keyboard.left:
-        shiprect.move_ip(-moveby, 0)
+        ship_box.move_ip(-move_by, 0)
+    # check for crash
+    if ship_box.collidelist(top_rocks) != -1 or ship_box.collidelist(bottom_rocks) != -1:
+        crashed = True
+        speed = 0
+        clock.unschedule(hide_fliptext)
+        clock.unschedule(flip)
+    else:
+        score += speed
 
-def new_toprect(prevheight, width=None):
-    return pygame.Rect(0, 0, width or new_width(), new_topheight(prevheight))
+def new_top_rock(prevheight, width=None):
+    return pygame.Rect(0, INFO_HEIGHT, width or new_rock_width(), new_top_height(prevheight) - INFO_HEIGHT)
 
-def new_width():
+def new_rock_width():
     return random.randint(0, int(WIDTH/20) - 5) + 5
 
-def new_topheight(prevheight):
+def new_top_height(prevheight):
     while True:
         range = random.randint(-30, 30)
         if random.randint(0,1) > 0.5:
             range = -range
-        if (prevheight + range) > HEIGHT * 0.25 and (prevheight + range) < HEIGHT * 0.75 - VGAP:
+        if (prevheight + range) > HEIGHT * 0.25 and (prevheight + range) < HEIGHT * 0.75 - CAVEHEIGHT:
             break
     return prevheight + range
 
-def fill():
-    while (toprecs[-1].right < WIDTH):
-        add_slice(toprecs[-1].bottom, toprecs[-1].right)
+def add_more_rocks():
+    while (top_rocks[-1].right < WIDTH):
+        add_slice(top_rocks[-1].bottom, top_rocks[-1].right)
 
 def add_slice(prevheight, prevright, width=None):
-        newRect = new_toprect(prevheight, width)
+        newRect = new_top_rock(prevheight, width)
         newRect.left = prevright
-        toprecs.append(newRect)
-        bottomRect = pygame.Rect(newRect.left, newRect.bottom + VGAP, newRect.width, HEIGHT - (newRect.bottom + VGAP))
-        bottomrecs.append(bottomRect)
+        top_rocks.append(newRect)
+        bottomRect = pygame.Rect(newRect.left, newRect.bottom + CAVEHEIGHT, newRect.width, HEIGHT - (newRect.bottom + CAVEHEIGHT))
+        bottom_rocks.append(bottomRect)
 
-def trim_offscreen():
-    while (toprecs[0].right < 0):
-        toprecs.popleft()
-    while (bottomrecs[0].right < 0):
-        bottomrecs.popleft()
+def remove_old_rocks():
+    while (top_rocks[0].right < 0):
+        top_rocks.popleft()
+    while (bottom_rocks[0].right < 0):
+        bottom_rocks.popleft()
 
 def flip():
-    if speed == 0:
+    if crashed:
         return
-    global rock_color, moveby, show_flip
+    global rock_color, move_by, show_fliptext
     rock_color = 'green' if rock_color == 'red' else 'red'
-    moveby = -moveby
-    show_flip = True
-    clock.schedule_unique(hide_flip, 1.0)
+    move_by = -move_by
+    show_fliptext = True
+    clock.schedule_unique(hide_fliptext, 1.0)
     next_flip = random.random() * 8 + 4
     clock.schedule_unique(flip, next_flip)
 
-def hide_flip():
-    global show_flip
-    show_flip = False
+def hide_fliptext():
+    global show_fliptext
+    show_fliptext = False
 
 def setup():
-    global shiprect, toprecs, bottomrecs, speed, moveby, rock_color, show_flip
-    toprecs = deque()
-    bottomrecs = deque()
+    global ship_box, top_rocks, bottom_rocks, speed, move_by, rock_color, show_fliptext, score, crashed
+    top_rocks = deque()
+    bottom_rocks = deque()
     speed = 3
-    moveby = 2
+    move_by = 2
     rock_color = 'red'
-    show_flip = False
+    show_fliptext = False
+    score = 0
+    crashed = False
     add_slice(int(HEIGHT/3), 0, WIDTH)
-    shipH = toprecs[0].bottom + int(VGAP/2)
-    shiprect = pygame.Rect(0, 0, 20, 20)
-    shiprect.center = (WIDTH/4, shipH)
+    shipH = top_rocks[0].bottom + int(CAVEHEIGHT/2)
+    ship_box = pygame.Rect(0, 0, 20, 20)
+    ship_box.center = (WIDTH/4, shipH)
     clock.schedule_interval(flip, 10.0)
 
 def on_mouse_down():
-    if speed != 0:
+    if not crashed:
         return
     setup()
 
