@@ -11,9 +11,6 @@ Actor : pgzero.actor.Actor
 # constants
 WIDTH = 800
 HEIGHT = 600
-CAVEHEIGHT = 150
-INFO_HEIGHT = 40
-
 
 class HighScore:
     def __init__(self, height):
@@ -24,13 +21,15 @@ class HighScore:
         self.score += dist
 
     def draw(self):
-        screen.draw.text(f"Score: {self.score}", topleft=(0, 0), fontsize=INFO_HEIGHT, color='white')
+        screen.draw.text(f"Score: {self.score}", topleft=(0, 0), fontsize=self.height, color='white')
 
 class Rocks:
-    def __init__(self, width, height, speed):
+    def __init__(self, width, height, score_height, speed, gap_height=150):
         self.width = width
         self.height = height
+        self.score_height = score_height
         self.speed = speed
+        self.gap_height = gap_height
         self.top_rocks = deque()
         self.bottom_rocks = deque()
         self.rock_color = 'red'
@@ -38,8 +37,8 @@ class Rocks:
         self.add_more_rocks()
 
     def initial_ship_position(self):
-        shipH = self.top_rocks[0].bottom + int(CAVEHEIGHT/2)
-        return WIDTH/4, shipH
+        shipH = self.top_rocks[0].bottom + int(self.gap_height/2)
+        return self.width/4, shipH
 
     def draw(self):
         for rock in self.top_rocks:
@@ -70,7 +69,7 @@ class Rocks:
             newRect = self.new_top_rock(prevheight, width)
             newRect.left = prevright
             self.top_rocks.append(newRect)
-            bottomRect = pygame.Rect(newRect.left, newRect.bottom + CAVEHEIGHT, newRect.width, self.height - (newRect.bottom + CAVEHEIGHT))
+            bottomRect = pygame.Rect(newRect.left, newRect.bottom + self.gap_height, newRect.width, self.height - (newRect.bottom + self.gap_height))
             self.bottom_rocks.append(bottomRect)
 
     def remove_old_rocks(self):
@@ -80,7 +79,7 @@ class Rocks:
             self.bottom_rocks.popleft()
 
     def new_top_rock(self, prevheight, width=None):
-        return pygame.Rect(0, INFO_HEIGHT, width or self.new_rock_width(), self.new_top_height(prevheight) - INFO_HEIGHT)
+        return pygame.Rect(0, self.score_height, width or self.new_rock_width(), self.new_top_height(prevheight) - self.score_height)
 
     def new_rock_width(self):
         return random.randint(0, int(self.width/20) - 5) + 5
@@ -90,7 +89,7 @@ class Rocks:
             range = random.randint(-30, 30)
             if random.randint(0,1) > 0.5:
                 range = -range
-            if (prevheight + range) > self.height * 0.25 and (prevheight + range) < self.height * 0.75 - CAVEHEIGHT:
+            if (prevheight + range) > self.height * 0.25 and (prevheight + range) < self.height * 0.75 - self.gap_height:
                 break
         return prevheight + range
 
@@ -119,13 +118,16 @@ class Ship:
         self.move_by = -self.move_by
 
 class Game:
-    def __init__(self, speed = 3):
-        self.score = HighScore(INFO_HEIGHT)
-        self.rocks = Rocks(WIDTH, HEIGHT, speed)
-        self.ship = Ship()
+    def __init__(self, width, height, score_height, speed = 3):
+        self.width = width
+        self.height = height
+        self.score_height = score_height
         self.speed = speed
         self.crashed = False
         self.show_fliptext = False
+        self.score = HighScore(self.score_height)
+        self.rocks = Rocks(self.width, self.height, self.score_height, self.speed)
+        self.ship = Ship()
         self.ship.set_position(self.rocks.initial_ship_position())
         clock.schedule_interval(self.flip, 10.0)
 
@@ -137,9 +139,9 @@ class Game:
         self.ship.draw()
         # draw text
         if self.crashed:
-            screen.draw.text("GAME OVER", center=(WIDTH/2, HEIGHT/2), fontsize=64, color='white')
+            screen.draw.text("GAME OVER", center=(self.width/2, self.height/2), fontsize=64, color='white')
         elif self.show_fliptext:
-            screen.draw.text("FLIP!", center=(WIDTH/2, HEIGHT/2), fontsize=64, color='yellow')
+            screen.draw.text("FLIP!", center=(self.width/2, self.height/2), fontsize=64, color='yellow')
 
     def update(self):
         if self.crashed:
@@ -169,7 +171,7 @@ class Game:
         self.show_fliptext = False
 
 
-game = Game()
+game = Game(WIDTH, HEIGHT, 40)
 
 def draw():
     game.draw()
@@ -181,6 +183,6 @@ def on_mouse_down():
     global game
     if not game.crashed:
         return
-    game = Game()
+    game = Game(WIDTH, HEIGHT, 40)
 
 pgzrun.go()
